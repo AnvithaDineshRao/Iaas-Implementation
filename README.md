@@ -4,39 +4,20 @@
 
 ### Architecture of the application
 
-1. Web Tier:
+####  Web Tier:
+The web tier is deployed on an EC2 instance as a JAVA Spring based WEB application with REST endpoints, for the user to provide URLs for Image Recognition.
+The URL is sent to Amazon Simple Queuing Service (SQS) denoted as a requestQueue for reliable pickup of requests. 
+The requests are picked up from the web-tier where the “requestQueue” polls for 10 seconds for new messages containing the URLs.
 
-  * The web tier is deployed on an EC2 instance as a JAVA Spring based WEB application with REST endpoints, for the user to provide URLs for Image Recognition.
-  * The URL is sent to Amazon Simple Queuing Service (SQS) denoted as a requestQueue for reliable pickup of requests. 
-  * The requests are processed by the app-tier instances running the Image Recognition model, and the results are stored in another Amazon Simple Queuing Service (SQS) denoted as a responseQueue.
-  * To ensure that the output is mapped correctly to input URL, the input provided by the user is compared with the messages in the responseQueue and returned to the user.
-  
-2. Request Queue:
+#### Load Balancer:
+The requests are picked up from the requestQueue and creates instances based on the number of requests such that no more than 20 instances are created.
 
-  * The requests are picked up from the web-tier where the “requestQueue” polls for 10 seconds for new messages containing the URLs.
-
-3. Load Balancer:
-
-  * The requests are picked up from the requestQueue and creates instances based on the number of requests such that no more than 20 instances are created.
-  * The created instances pull in more requests from the requestQueue. If there are no more requests, the instance is terminated.
-  * If again there is any new request, new instances are created.
-
-4. App Tier:
-
-  * The requests are picked up from the requestQueue by the App-instances for image recognition.
-  * Each App-instance is launched from an Image Recognition AMI, which also has a jar and shell script deployed for processing.
-  * The shell script is invoked on start of the App-Instance, and in turn this script calls the jar which consists of the image recognition logic.
-  * The jar file on running, will fetch requests from the requestQueue, and call another script for using the image recognition model. The output from the image recognition model is fetched and inserted to the reponseQueue.
-  * The app tier picks up if any more request are present, else it terminates all instances.
-  
-5. Response Queue:
-
-* The responses are picked from the instances and stored in S3 bucket name "image-result-bucket" after comparing the input URL sent in web-tier with the URL in "responseQueue".
-
-6. S3:
-
-* The responses are picked from the output of tensorflow model and fed as (key, pair) values in S3 bucket named "image-result-bucket".
-* The (key,pair) is passed to the web-tier and displayed as result for the corresponding client.
+#### App Tier:
+The requests are picked up from the requestQueue by the App-instances for image recognition.
+Each App-instance is launched from an Image Recognition AMI, which also has a jar and shell script deployed for processing.
+The jar file on running, will fetch requests from the requestQueue, and call another script for using the image recognition model. The output from the image recognition model is fetched and inserted to the reponseQueue.
+The responses are picked from the instances and stored in S3 bucket name "image-result-bucket" after comparing the input URL sent in web-tier with the URL in "responseQueue".
+The responses are picked from the output of tensorflow model and fed as (key, pair) values in S3 bucket named "image-result-bucket".
 
 ### Autoscaling
 
